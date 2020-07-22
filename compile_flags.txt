@@ -1,0 +1,2 @@
+-I/usr/local/Cellar/llvm/10.0.0_3/include
+-std=c++14
