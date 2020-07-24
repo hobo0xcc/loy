@@ -7,4 +7,4 @@ loy: $(SRC)
 	$(CXX) -g $(CXXFLAGS) -o $@ $^
 	
 clean:
-	$(RM) loy loy.dSYM
+	$(RM) loy loy.dSYM a.out main.o
