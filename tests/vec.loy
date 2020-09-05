@@ -1,0 +1,57 @@
+fun malloc(bytes: i32): i8*;
+fun realloc(ptr: i8*, bytes: i32): i8*;
+
+struct Vec {
+    capacity: i32,
+    len: i32,
+    data: i8**
+}
+
+fun make_vec(): Vec* {
+    var v: Vec* = malloc(@sizeof(Vec));
+    v.*.data = malloc(@sizeof(i8*));
+    v.*.capacity = @sizeof(i8*);
+    v.*.len = 0;
+    return v;
+}
+
+fun grow_vec(v: Vec*, len: i32): void {
+    var size: i32 = v.*.len + len;
+    var ptr_size: i32 = @sizeof(i8*);
+    if (size * ptr_size) <= v.*.capacity {
+        return;
+    }
+
+    while v.*.capacity < (size * ptr_size) {
+        v.*.capacity *= 2;
+    }
+
+    v.*.data = realloc(v.*.data, v.*.capacity);
+    return;
+}
+
+fun push_back(v: Vec*, item: i8*): void {
+    grow_vec(v, 1);
+    (v.*.data + v.*.len).* = item;
+    v.*.len += 1;
+    return;
+}
+
+fun at(v: Vec*, idx: i32): i8* {
+    return (v.*.data + idx).*;
+}
+
+fun main(): i32 {
+    var v: Vec* = make_vec();
+    var integer1: i32* = malloc(@sizeof(i32));
+    integer1.* = 20;
+    var integer2: i32* = malloc(@sizeof(i32));
+    integer2.* = 40;
+    push_back(v, integer1 as i8*);
+    push_back(v, integer2 as i8*);
+    
+    var res1: i32* = at(v, 0) as i32*;
+    var res2: i32* = at(v, 1) as i32*;
+
+    return res1.* + res2.*;
+}

@@ -1,0 +1,8 @@
+fun malloc(bytes: i32): i32*;
+
+fun main(): i32 {
+    var n: i32* = malloc(8);
+    n.* = 20;
+    (n + 1).* = 30;
+    return n.* + (n + 1).*;
+}

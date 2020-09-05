@@ -1,0 +1,5 @@
+fun main(): i32 {
+    var a: str = "Hello, world!";
+    var b: i32* = a as i32*;
+    return b.*;
+}

@@ -1,0 +1,15 @@
+fun malloc(bytes: i32): i8*;
+
+struct point {
+    x: i32,
+    y: i32,
+    z: i32,
+    s: str
+}
+
+fun main(): i32 {
+    var p: point* = malloc(@sizeof(point)) as point*;
+    p.*.x = 2;
+    p.*.y = 4;
+    return @sizeof(point);
+}

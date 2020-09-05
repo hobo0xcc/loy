@@ -1,0 +1,6 @@
+fun printf(s: str): i32;
+
+fun main(): i32 {
+    printf("Hello, world!\n");
+    return 0;
+}

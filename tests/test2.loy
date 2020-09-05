@@ -1,0 +1,17 @@
+fun malloc(size: i32): i32*;
+
+fun fib(n: i32): i32 {
+    if n < 2 {
+        return 1;
+    }
+
+    return fib(n - 1) + fib(n - 2);
+}
+
+fun main(): i64 {
+    var ptr: i32* = malloc(4);
+    ptr.* = fib(8);
+    var i: i32 = 20;
+    var j: i64 = i as i64;
+    return j;
+}

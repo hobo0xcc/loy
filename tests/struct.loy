@@ -1,0 +1,22 @@
+fun printf(s: str): i32;
+
+struct point2 {
+    p: i32,
+}
+
+struct point {
+    a: i32,
+    b: i32,
+    c: str,
+    d: point2
+}
+
+fun main(): i32 {
+    var p: point;
+    p.a = 20;
+    p.b = 30;
+    p.c = "Hello";
+    p.d.p = 20;
+    printf(p.c);
+    return p.a + p.b + p.d.p;
+}
