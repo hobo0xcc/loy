@@ -1,0 +1,4 @@
+fun main(): i32 {
+    var ch: char = 'a';
+    return ch as i32;
+}

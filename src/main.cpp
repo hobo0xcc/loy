@@ -82,6 +82,7 @@ typedef enum TokenType {
     TOKEN_DOT,
     TOKEN_AT,
     TOKEN_STR_LITERAL,
+    TOKEN_CHAR_LITERAL,
     TOKEN_IDENT,
     TOKEN_VAR,
     TOKEN_RETURN,
@@ -324,6 +325,20 @@ Token Lexer::tokenize_symbol() {
         read_char();
 
         return Token(buf, TOKEN_STR_LITERAL);
+    } else if (sym == '\'') {
+        std::string buf;
+        if (cur_char() == '\\') {
+            read_char();
+            buf.push_back(escape(read_char()));
+        } else {
+            buf.push_back(read_char());
+        }
+        if (cur_char() != '\'') {
+            throw "Error: char literal must be enclosed with single quote";
+        }
+        read_char();
+
+        return Token(buf, TOKEN_CHAR_LITERAL);
     } else {
         std::stringstream stream;
         stream << "Error: unknown symbol: " << sym << std::endl;
@@ -723,6 +738,30 @@ Value *StringExpr::lvalue_codegen(Compiler &c, Scope &s, TypeEnv &type_env) {
 std::string StringExpr::to_str() {
     std::stringstream stream;
     stream << "\"" << str_val << "\"";
+    return stream.str();
+}
+
+class CharExpr : public Expr {
+  private:
+    char ch;
+  public:
+    CharExpr(char ch) : ch(ch) {}
+    Value *codegen(Compiler &c, Scope &s, TypeEnv &type_env) override;
+    Value *lvalue_codegen(Compiler &c, Scope &s, TypeEnv &type_env) override;
+    std::string to_str() override;
+};
+
+Value *CharExpr::codegen(Compiler &c, Scope &s, TypeEnv &type_env) {
+    return ConstantInt::get(c.context, APInt(8, (int)ch, true));
+}
+
+Value *CharExpr::lvalue_codegen(Compiler &c, Scope &s, TypeEnv &type_env) {
+    return codegen(c, s, type_env);
+}
+
+std::string CharExpr::to_str() {
+    std::stringstream stream;
+    stream << "'" << ch << "'";
     return stream.str();
 }
 
@@ -1758,6 +1797,8 @@ std::unique_ptr<Expr> Parser::primary_expr() {
         }
     } else if (match(TOKEN_STR_LITERAL)) {
         return std::make_unique<StringExpr>(l.read().as_str());
+    } else if (match(TOKEN_CHAR_LITERAL)) {
+        return std::make_unique<CharExpr>(l.read().as_str().at(0));
     } else if (match(TOKEN_AT)) {
         return builtin_call();
     } else {
