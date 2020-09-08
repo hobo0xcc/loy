@@ -78,6 +78,7 @@ typedef enum TokenType {
     TOKEN_RBRACE,
     TOKEN_SEMICOLON,
     TOKEN_COLON,
+    TOKEN_COLON_2,
     TOKEN_COMMA,
     TOKEN_DOT,
     TOKEN_AT,
@@ -93,6 +94,7 @@ typedef enum TokenType {
     TOKEN_WHILE,
     TOKEN_AS,
     TOKEN_STRUCT,
+    TOKEN_IMPORT,
     TOKEN_EOF,
 } TokenType;
 
@@ -188,6 +190,8 @@ TokenType Lexer::get_ident_type(std::string str) {
         return TOKEN_AS;
     } else if (str == "struct") {
         return TOKEN_STRUCT;
+    } else if (str == "use") {
+
     } else {
         return TOKEN_IDENT;
     }
@@ -302,7 +306,12 @@ Token Lexer::tokenize_symbol() {
     } else if (sym == ';') {
         return Token(";", TOKEN_SEMICOLON);
     } else if (sym == ':') {
-        return Token(":", TOKEN_COLON);
+        if (cur_char() == ':') {
+            read_char();
+            return Token("::", TOKEN_COLON_2);
+        } else {
+            return Token(":", TOKEN_COLON);
+        }
     } else if (sym == ',') {
         return Token(",", TOKEN_COMMA);
     } else if (sym == '.') {
@@ -614,6 +623,32 @@ std::string IntLangType::to_str() {
     return stream.str();
 }
 
+class FloatLangType : public LangType {
+  private:
+    int bits;
+
+  public:
+    FloatLangType(int bits) : bits(bits) {}
+    Type *llvm_type(Compiler &c) override;
+    std::string to_str() override;
+};
+
+Type *FloatLangType::llvm_type(Compiler &c) {
+    if (bits == 32) {
+        return Type::getFloatTy(c.context);
+    } else if (bits == 64) {
+        return Type::getDoubleTy(c.context);
+    } else {
+        throw "Error: unimplemented float type";
+    }
+}
+
+std::string FloatLangType::to_str() {
+    std::stringstream stream;
+    stream << "f" << bits;
+    return stream.str();
+}
+
 class StrLangType : public LangType {
   public:
     StrLangType() {}
@@ -658,9 +693,7 @@ Type *VoidLangType::llvm_type(Compiler &c) {
     return Type::getVoidTy(c.context);
 }
 
-std::string VoidLangType::to_str() {
-    return "void";
-}
+std::string VoidLangType::to_str() { return "void"; }
 
 class UserDefinedLangType : public LangType {
   private:
@@ -744,6 +777,7 @@ std::string StringExpr::to_str() {
 class CharExpr : public Expr {
   private:
     char ch;
+
   public:
     CharExpr(char ch) : ch(ch) {}
     Value *codegen(Compiler &c, Scope &s, TypeEnv &type_env) override;
@@ -829,10 +863,12 @@ Value *BinaryExpr::codegen(Compiler &c, Scope &s, TypeEnv &type_env) {
     }
     Value *rval = rhs->codegen(c, s, type_env);
 
-    if (!is_assign_op && (lval->getType()->isPointerTy() || rval->getType()->isPointerTy())) {
+    if (!is_assign_op &&
+        (lval->getType()->isPointerTy() || rval->getType()->isPointerTy())) {
         if (lval->getType()->isPointerTy() && rval->getType()->isPointerTy()) {
             std::stringstream stream;
-            stream << "Error: invalid operation: `Pointer` " << op << " `Pointer` is not allowed";
+            stream << "Error: invalid operation: `Pointer` " << op
+                   << " `Pointer` is not allowed";
             throw stream.str();
         }
 
@@ -841,13 +877,16 @@ Value *BinaryExpr::codegen(Compiler &c, Scope &s, TypeEnv &type_env) {
         }
 
         if (op == "+") {
-            return c.builder.CreateGEP(lval->getType()->getPointerElementType(), lval, rval);
+            return c.builder.CreateGEP(lval->getType()->getPointerElementType(),
+                                       lval, rval);
         } else if (op == "-") {
             Value *neg_rval = c.builder.CreateNeg(rval);
-            return c.builder.CreateGEP(lval->getType()->getPointerElementType(), lval, neg_rval);
+            return c.builder.CreateGEP(lval->getType()->getPointerElementType(),
+                                       lval, neg_rval);
         } else {
             std::stringstream stream;
-            stream << "Error: invalid operation: `" << op << "` operator is not allowed in pointer operation";
+            stream << "Error: invalid operation: `" << op
+                   << "` operator is not allowed in pointer operation";
             throw stream.str();
         }
     } else if (op == "+") {
@@ -1236,6 +1275,7 @@ class BuiltinCallExpr : public Expr {
 class BuiltinSizeof : public BuiltinCallExpr {
   private:
     std::unique_ptr<LangType> type;
+
   public:
     BuiltinSizeof(std::unique_ptr<LangType> type) : type{std::move(type)} {}
     Value *codegen(Compiler &c, Scope &s, TypeEnv &type_env) override;
@@ -1246,8 +1286,10 @@ class BuiltinSizeof : public BuiltinCallExpr {
 Value *BuiltinSizeof::codegen(Compiler &c, Scope &s, TypeEnv &type_env) {
     Type *lltype = type->llvm_type(c);
     Value *const_one = ConstantInt::get(c.context, APInt(32, 1, true));
-    Value *size_ptr = c.builder.CreateGEP(lltype, ConstantPointerNull::get(lltype->getPointerTo()), const_one);
-    Value *size = c.builder.CreateCast(Instruction::CastOps::PtrToInt, size_ptr, Type::getInt32Ty(c.context));
+    Value *size_ptr = c.builder.CreateGEP(
+        lltype, ConstantPointerNull::get(lltype->getPointerTo()), const_one);
+    Value *size = c.builder.CreateCast(Instruction::CastOps::PtrToInt, size_ptr,
+                                       Type::getInt32Ty(c.context));
     return size;
 }
 
@@ -1326,7 +1368,7 @@ std::string ExprStmt::to_str() { return expr->to_str(); }
 
 class ReturnStmt : public Stmt {
   private:
-      std::optional<std::unique_ptr<Expr>> result;
+    std::optional<std::unique_ptr<Expr>> result;
 
   public:
     ReturnStmt() : result{std::nullopt} {}
@@ -1725,6 +1767,10 @@ std::unique_ptr<LangType> Parser::get_type_from_string(std::string ty_name) {
         return std::make_unique<IntLangType>(8);
     } else if (ty_name == "void") {
         return std::make_unique<VoidLangType>();
+    } else if (ty_name == "f32") {
+        return std::make_unique<FloatLangType>(32);
+    } else if (ty_name == "f64") {
+        return std::make_unique<FloatLangType>(64);
     } else {
         return std::make_unique<UserDefinedLangType>(ty_name);
     }
